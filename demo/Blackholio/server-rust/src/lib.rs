@@ -63,11 +63,11 @@ pub struct Circle {
 #[derive(Debug, Clone)]
 pub struct Player {
     #[primary_key]
-    identity: Identity,
+    pub identity: Identity,
     #[unique]
     #[auto_inc]
-    player_id: i32,
-    name: String,
+    pub player_id: i32,
+    pub name: String,
 }
 
 #[spacetimedb::table(accessor = food, public)]
@@ -80,49 +80,49 @@ pub struct Food {
 pub struct MoveAllPlayersTimer {
     #[primary_key]
     #[auto_inc]
-    scheduled_id: u64,
-    scheduled_at: spacetimedb::ScheduleAt,
+    pub scheduled_id: u64,
+    pub scheduled_at: ScheduleAt,
 }
 
 #[spacetimedb::table(accessor = spawn_food_timer, scheduled(spawn_food))]
 pub struct SpawnFoodTimer {
     #[primary_key]
     #[auto_inc]
-    scheduled_id: u64,
-    scheduled_at: spacetimedb::ScheduleAt,
+    pub scheduled_id: u64,
+    pub scheduled_at: ScheduleAt,
 }
 
 #[spacetimedb::table(accessor = circle_decay_timer, scheduled(circle_decay))]
 pub struct CircleDecayTimer {
     #[primary_key]
     #[auto_inc]
-    scheduled_id: u64,
-    scheduled_at: spacetimedb::ScheduleAt,
+    pub scheduled_id: u64,
+    pub scheduled_at: ScheduleAt,
 }
 
 #[spacetimedb::table(accessor = circle_recombine_timer, scheduled(circle_recombine))]
 pub struct CircleRecombineTimer {
     #[primary_key]
     #[auto_inc]
-    scheduled_id: u64,
-    scheduled_at: spacetimedb::ScheduleAt,
-    player_id: i32,
+    pub scheduled_id: u64,
+    pub scheduled_at: ScheduleAt,
+    pub player_id: i32,
 }
 
 #[spacetimedb::table(accessor = consume_entity_event, public, event)]
 pub struct ConsumeEntityEvent {
-    consumed_entity_id: i32,
-    consumer_entity_id: i32,
+    pub consumed_entity_id: i32,
+    pub consumer_entity_id: i32,
 }
 
 #[spacetimedb::table(accessor = consume_entity_timer, scheduled(consume_entity))]
 pub struct ConsumeEntityTimer {
     #[primary_key]
     #[auto_inc]
-    scheduled_id: u64,
-    scheduled_at: spacetimedb::ScheduleAt,
-    consumed_entity_id: i32,
-    consumer_entity_id: i32,
+    pub scheduled_id: u64,
+    pub scheduled_at: ScheduleAt,
+    pub consumed_entity_id: i32,
+    pub consumer_entity_id: i32,
 }
 
 #[spacetimedb::reducer(init)]
@@ -149,15 +149,15 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
 
 #[spacetimedb::reducer(client_connected)]
 pub fn connect(ctx: &ReducerContext) -> Result<(), String> {
-    if let Some(player) = ctx.db.logged_out_player().identity().find(&ctx.sender()) {
+    if let Some(player) = ctx.db.logged_out_player().identity().find(ctx.sender()) {
         ctx.db.player().insert(player.clone());
-        ctx.db.logged_out_player().identity().delete(&player.identity);
+        ctx.db.logged_out_player().identity().delete(player.identity);
 
         // Restore any circles for this player
         for circle in ctx.db.logged_out_circle().player_id().filter(&player.player_id) {
             ctx.db.logged_out_circle().entity_id().delete(circle.entity_id);
             ctx.db.circle().insert(circle.clone());
-            let logged_out_entity = ctx.db.logged_out_entity().entity_id().find(&circle.entity_id).unwrap();
+            let logged_out_entity = ctx.db.logged_out_entity().entity_id().find(circle.entity_id).unwrap();
             ctx.db.logged_out_entity().entity_id().delete(circle.entity_id);
             ctx.db.entity().insert(logged_out_entity);
         }
@@ -177,19 +177,19 @@ pub fn disconnect(ctx: &ReducerContext) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(ctx.sender())
         .ok_or("Player not found")?;
     let player_id = player.player_id;
     ctx.db.logged_out_player().insert(player);
-    ctx.db.player().identity().delete(&ctx.sender());
+    ctx.db.player().identity().delete(ctx.sender());
 
     // Move any circles from the arena into logged out tables
     for circle in ctx.db.circle().player_id().filter(&player_id) {
-        let entity = ctx.db.entity().entity_id().find(&circle.entity_id).unwrap();
+        let entity = ctx.db.entity().entity_id().find(circle.entity_id).unwrap();
         ctx.db.logged_out_entity().insert(entity);
-        ctx.db.entity().entity_id().delete(&circle.entity_id);
+        ctx.db.entity().entity_id().delete(circle.entity_id);
         ctx.db.logged_out_circle().insert(circle.clone());
-        ctx.db.circle().entity_id().delete(&circle.entity_id);
+        ctx.db.circle().entity_id().delete(circle.entity_id);
     }
 
     Ok(())
@@ -209,7 +209,7 @@ pub fn enter_game(ctx: &ReducerContext, name: String) -> Result<(), String> {
 
 fn spawn_player_initial_circle(ctx: &ReducerContext, player_id: i32) -> Result<Entity, String> {
     let mut rng = ctx.rng();
-    let world_size = ctx.db.config().id().find(&0).ok_or("Config not found")?.world_size;
+    let world_size = ctx.db.config().id().find(0).ok_or("Config not found")?.world_size;
     let player_start_radius = mass_to_radius(START_PLAYER_MASS);
     let x = rng.gen_range(player_start_radius..(world_size as f32 - player_start_radius));
     let y = rng.gen_range(player_start_radius..(world_size as f32 - player_start_radius));
@@ -245,7 +245,7 @@ pub fn respawn(ctx: &ReducerContext) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(ctx.sender())
         .ok_or("No such player found")?;
 
     spawn_player_initial_circle(ctx, player.player_id)?;
@@ -259,7 +259,7 @@ pub fn suicide(ctx: &ReducerContext) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(ctx.sender())
         .ok_or("No such player found")?;
 
     for circle in ctx.db.circle().player_id().filter(&player.player_id) {
@@ -275,7 +275,7 @@ pub fn update_player_input(ctx: &ReducerContext, direction: DbVector2) -> Result
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(ctx.sender())
         .ok_or("Player not found")?;
     for mut circle in ctx.db.circle().player_id().filter(&player.player_id) {
         circle.direction = direction.normalized();
@@ -311,6 +311,11 @@ fn mass_to_max_move_speed(mass: i32) -> f32 {
 
 #[spacetimedb::reducer]
 pub fn move_all_players(ctx: &ReducerContext, _timer: MoveAllPlayersTimer) -> Result<(), String> {
+
+    if ctx.db.player().count() == 0 {
+        return Ok(());
+    }
+
     // TODO identity check
     // let span = spacetimedb::log_stopwatch::LogStopwatch::new("tick");
     let world_size = ctx.db.config().id().find(0).ok_or("Config not found")?.world_size;
@@ -327,7 +332,7 @@ pub fn move_all_players(ctx: &ReducerContext, _timer: MoveAllPlayersTimer) -> Re
         let circles: Vec<Circle> = ctx.db.circle().player_id().filter(&player.player_id).collect();
         let mut player_entities: Vec<Entity> = circles
             .iter()
-            .map(|c| ctx.db.entity().entity_id().find(&c.entity_id).unwrap())
+            .map(|c| ctx.db.entity().entity_id().find(c.entity_id).unwrap())
             .collect();
         if player_entities.len() <= 1 {
             continue;
@@ -393,7 +398,7 @@ pub fn move_all_players(ctx: &ReducerContext, _timer: MoveAllPlayersTimer) -> Re
 
     // Handle player input
     for circle in ctx.db.circle().iter() {
-        let circle_entity = ctx.db.entity().entity_id().find(&circle.entity_id);
+        let circle_entity = ctx.db.entity().entity_id().find(circle.entity_id);
         if !circle_entity.is_some() {
             // This can happen if a circle is eaten by another circle
             continue;
@@ -414,13 +419,13 @@ pub fn move_all_players(ctx: &ReducerContext, _timer: MoveAllPlayersTimer) -> Re
     for circle in ctx.db.circle().iter() {
         // let span = spacetimedb::time_span::Span::start("collisions");
         let circle_entity = entities.get(&circle.entity_id).unwrap();
-        for (_, other_entity) in entities.iter() {
+        for other_entity in entities.values() {
             if other_entity.entity_id == circle_entity.entity_id {
                 continue;
             }
 
-            if is_overlapping(&circle_entity, other_entity) {
-                let other_circle = ctx.db.circle().entity_id().find(&other_entity.entity_id);
+            if is_overlapping(circle_entity, other_entity) {
+                let other_circle = ctx.db.circle().entity_id().find(other_entity.entity_id);
                 if let Some(other_circle) = other_circle {
                     if other_circle.player_id != circle.player_id {
                         let mass_ratio = other_entity.mass as f32 / circle_entity.mass as f32;
@@ -443,7 +448,7 @@ pub fn move_all_players(ctx: &ReducerContext, _timer: MoveAllPlayersTimer) -> Re
 fn schedule_consume_entity(ctx: &ReducerContext, consumer_id: i32, consumed_id: i32) {
     ctx.db.consume_entity_timer().insert(ConsumeEntityTimer {
         scheduled_id: 0,
-        scheduled_at: ScheduleAt::Time(ctx.timestamp.clone()),
+        scheduled_at: ScheduleAt::Time(ctx.timestamp),
         consumer_entity_id: consumer_id,
         consumed_entity_id: consumed_id,
     });
@@ -451,8 +456,8 @@ fn schedule_consume_entity(ctx: &ReducerContext, consumer_id: i32, consumed_id: 
 
 #[spacetimedb::reducer]
 pub fn consume_entity(ctx: &ReducerContext, request: ConsumeEntityTimer) -> Result<(), String> {
-    let consumed_entity = ctx.db.entity().entity_id().find(&request.consumed_entity_id);
-    let consumer_entity = ctx.db.entity().entity_id().find(&request.consumer_entity_id);
+    let consumed_entity = ctx.db.entity().entity_id().find(request.consumed_entity_id);
+    let consumer_entity = ctx.db.entity().entity_id().find(request.consumer_entity_id);
     if consumed_entity.is_none() {
         return Err("Consumed entity doesn't exist".into());
     }
@@ -475,9 +480,9 @@ pub fn consume_entity(ctx: &ReducerContext, request: ConsumeEntityTimer) -> Resu
 }
 
 pub fn destroy_entity(ctx: &ReducerContext, entity_id: i32) -> Result<(), String> {
-    ctx.db.food().entity_id().delete(&entity_id);
-    ctx.db.circle().entity_id().delete(&entity_id);
-    ctx.db.entity().entity_id().delete(&entity_id);
+    ctx.db.food().entity_id().delete(entity_id);
+    ctx.db.circle().entity_id().delete(entity_id);
+    ctx.db.entity().entity_id().delete(entity_id);
 
     Ok(())
 }
@@ -488,7 +493,7 @@ pub fn player_split(ctx: &ReducerContext) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(ctx.sender())
         .ok_or("Sender has no player")?;
     let circles: Vec<Circle> = ctx.db.circle().player_id().filter(&player.player_id).collect();
     let mut circle_count = circles.len() as i32;
@@ -501,7 +506,7 @@ pub fn player_split(ctx: &ReducerContext) -> Result<(), String> {
             .db
             .entity()
             .entity_id()
-            .find(&circle.entity_id)
+            .find(circle.entity_id)
             .ok_or("Circle has no entity")?;
         if circle_entity.mass >= MIN_MASS_TO_SPLIT * 2 {
             let half_mass = circle_entity.mass / 2;
@@ -574,7 +579,7 @@ pub fn circle_decay(ctx: &ReducerContext, _timer: CircleDecayTimer) -> Result<()
             .db
             .entity()
             .entity_id()
-            .find(&circle.entity_id)
+            .find(circle.entity_id)
             .ok_or("Entity not found")?;
         if circle_entity.mass <= START_PLAYER_MASS {
             continue;
@@ -598,7 +603,7 @@ pub fn circle_recombine(ctx: &ReducerContext, timer: CircleRecombineTimer) -> Re
     let recombining_entities: Vec<Entity> = circles
         .iter()
         .filter(|c| ctx.timestamp.duration_since(c.last_split_time).unwrap().as_secs_f32() >= SPLIT_RECOMBINE_DELAY_SEC)
-        .map(|c| ctx.db.entity().entity_id().find(&c.entity_id).unwrap())
+        .map(|c| ctx.db.entity().entity_id().find(c.entity_id).unwrap())
         .collect();
     if recombining_entities.len() <= 1 {
         return Ok(()); //No circles to recombine

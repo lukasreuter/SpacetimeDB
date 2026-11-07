@@ -380,8 +380,7 @@ void UDbConnection::ReducerEvent(const FReducerEvent& Event)
     if (!TryTakePendingTypedReducer(Event.RequestId, DecodedReducer))
     {
         const FString ErrorMessage = FString::Printf(TEXT("Reducer result for unknown request_id %u"), Event.RequestId);
-        UE_LOG(LogTemp, Error, TEXT("%s"), *ErrorMessage);
-        ReducerEventFailed(Event, ErrorMessage);
+        HandleProtocolViolation(ErrorMessage);
         return;
     }
 
@@ -488,6 +487,12 @@ USubscriptionBuilder* USubscriptionBuilder::OnError(FOnSubscriptionError Callbac
 	OnErrorDelegateInternal = Callback;
 	return this;
 }
+USubscriptionHandle* USubscriptionBuilder::Subscribe()
+{
+	const TArray<FString> SqlQueries = PendingSqlQueries;
+	PendingSqlQueries.Empty();
+	return Subscribe(SqlQueries);
+}
 USubscriptionHandle* USubscriptionBuilder::Subscribe(const TArray<FString>& SQL)
 {
 	USubscriptionHandle* Handle = NewObject<USubscriptionHandle>();
@@ -515,7 +520,61 @@ USubscriptionHandle* USubscriptionBuilder::Subscribe(const TArray<FString>& SQL)
 }
 USubscriptionHandle* USubscriptionBuilder::SubscribeToAllTables()
 {
-	return Subscribe({ "SELECT * FROM * " });
+	return Subscribe(FQueryBuilder::AllTablesSqlQueries());
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddBlueprintQuery(const FBlueprintQuery& Query)
+{
+	PendingSqlQueries.Add(Query.Sql);
+	return this;
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddCircleQuery(const FCircleQuery& Query)
+{
+	FBlueprintQuery GenericQuery;
+	GenericQuery.Sql = Query.Sql;
+	GenericQuery.ResultSourceName = Query.ResultSourceName;
+	return AddBlueprintQuery(GenericQuery);
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddConfigQuery(const FConfigQuery& Query)
+{
+	FBlueprintQuery GenericQuery;
+	GenericQuery.Sql = Query.Sql;
+	GenericQuery.ResultSourceName = Query.ResultSourceName;
+	return AddBlueprintQuery(GenericQuery);
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddConsumeEntityEventQuery(const FConsumeEntityEventQuery& Query)
+{
+	FBlueprintQuery GenericQuery;
+	GenericQuery.Sql = Query.Sql;
+	GenericQuery.ResultSourceName = Query.ResultSourceName;
+	return AddBlueprintQuery(GenericQuery);
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddEntityQuery(const FEntityQuery& Query)
+{
+	FBlueprintQuery GenericQuery;
+	GenericQuery.Sql = Query.Sql;
+	GenericQuery.ResultSourceName = Query.ResultSourceName;
+	return AddBlueprintQuery(GenericQuery);
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddFoodQuery(const FFoodQuery& Query)
+{
+	FBlueprintQuery GenericQuery;
+	GenericQuery.Sql = Query.Sql;
+	GenericQuery.ResultSourceName = Query.ResultSourceName;
+	return AddBlueprintQuery(GenericQuery);
+}
+
+USubscriptionBuilder* USubscriptionBuilder::AddPlayerQuery(const FPlayerQuery& Query)
+{
+	FBlueprintQuery GenericQuery;
+	GenericQuery.Sql = Query.Sql;
+	GenericQuery.ResultSourceName = Query.ResultSourceName;
+	return AddBlueprintQuery(GenericQuery);
 }
 
 USubscriptionHandle::USubscriptionHandle(UDbConnection* InConn)
@@ -598,11 +657,12 @@ void UDbConnection::ForwardOnConnect(UDbConnectionBase* BaseConnection, FSpaceti
 {
 	if (OnConnectDelegate.IsBound())
 	{
-		OnConnectDelegate.Execute(this, Identity, Token);
+		OnConnectDelegate.Execute(this, InIdentity, InToken);
 	}
 }
 void UDbConnection::ForwardOnDisconnect(UDbConnectionBase* BaseConnection, const FString& Error)
 {
+	PendingTypedReducers.Empty();
 	if (OnDisconnectDelegate.IsBound())
 	{
 		OnDisconnectDelegate.Execute(this, Error);
@@ -623,9 +683,9 @@ void UDbConnection::DbUpdate(const FDatabaseUpdateType& Update, const FSpacetime
         FReducer Reducer;
         if (!TryGetPendingTypedReducer(ReducerEvent.RequestId, Reducer))
         {
-            UE_LOG(LogTemp, Warning, TEXT("Missing typed reducer for request_id %u while building table-update event context; using UnknownTransaction event"), ReducerEvent.RequestId);
-            BaseEvent = FClientUnrealEvent::UnknownTransaction(FSpacetimeDBUnit());
-            break;
+            const FString ErrorMessage = FString::Printf(TEXT("Reducer result for unknown request_id %u"), ReducerEvent.RequestId);
+            HandleProtocolViolation(ErrorMessage);
+            return;
         }
         BaseEvent = FClientUnrealEvent::Reducer(Reducer);
         break;
