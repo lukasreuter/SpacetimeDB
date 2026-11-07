@@ -8,6 +8,7 @@
     <RestoreAdditionalProjectSources Condition="$(TargetFramework.StartsWith('net10.')) Or '$(SPACETIMEDB_WASM_AOT)' == '1'">https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-experimental/nuget/v3/index.json;https://api.nuget.org/v3/index.json;$(RestoreAdditionalProjectSources)</RestoreAdditionalProjectSources>
     <!-- ignore naming conventions, we're trying to match Rust 1:1 -->
     <NoWarn>$(NoWarn);CS8981;IDE1006</NoWarn>
+    <LangVersion>default</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(TargetFramework.StartsWith('net10.')) Or '$(SPACETIMEDB_WASM_AOT)' == '1'">
