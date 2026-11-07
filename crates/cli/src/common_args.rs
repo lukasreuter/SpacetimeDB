@@ -108,7 +108,7 @@ pub(crate) const NATIVEAOT_UNSUPPORTED_MESSAGE: &str =
     "NativeAOT-LLVM in only supported on Windows and Linux (.NET 10).";
 
 pub(crate) fn nativeaot_unsupported_on_host(os: &str, dotnet_version: Option<u8>) -> bool {
-    os == "macos" || (os == "linux" && dotnet_version == Some(8))
+    os == "linux" && dotnet_version == Some(8)
 }
 
 pub(crate) fn ensure_nativeaot_supported_on_host(dotnet_version: Option<u8>) -> anyhow::Result<()> {
