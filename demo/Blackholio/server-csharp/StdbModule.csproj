@@ -14,8 +14,10 @@
     <PublishTrimmed>true</PublishTrimmed>
     <SelfContained>true</SelfContained>
     <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+    
+    <RestoreSource>packages</RestoreSource>
 
-    <RestoreAdditionalProjectSources>https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-experimental/nuget/v3/index.json;https://api.nuget.org/v3/index.json;$(RestoreAdditionalProjectSources)</RestoreAdditionalProjectSources>
+    <RestoreAdditionalProjectSources>packages;https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-experimental/nuget/v3/index.json;https://api.nuget.org/v3/index.json;$(RestoreAdditionalProjectSources)</RestoreAdditionalProjectSources>
   </PropertyGroup>
 
   <ItemGroup>
