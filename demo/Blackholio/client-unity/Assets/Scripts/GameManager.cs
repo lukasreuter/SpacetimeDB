@@ -1,18 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using SpacetimeDB;
 using SpacetimeDB.Types;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
-public class GameManager : MonoBehaviour
+[AutoStaticsCleanup]
+public partial class GameManager : MonoBehaviour
 {
-    const string SERVER_URL = "http://127.0.0.1:3000";
-    const string MODULE_NAME = "blackholio";
+    private const string SERVER_URL = "https://maincloud.spacetimedb.com";
+    private const string MODULE_NAME = "blackholeio-1p3i2";
 
     public static event Action OnConnected;
     public static event Action OnSubscriptionApplied;
+
+    public static GameManager Instance { get; private set; }
+    public static Identity LocalIdentity { get; private set; }
+    public static DbConnection Conn { get; private set; }
+
+    public static readonly Dictionary<int, PlayerController> Players = new();
+    private static readonly Dictionary<int, EntityController> Entities = new();
+    private static readonly HashSet<int> PendingConsumeAnimations = new();
 
     public SpriteRenderer backgroundInstance;
     public float borderThickness = 2;
@@ -20,32 +29,23 @@ public class GameManager : MonoBehaviour
     public ParallaxBackground starBackgroundPrefab;
     public DeathScreen deathScreen;
 
-    public static GameManager Instance { get; private set; }
-    public static Identity LocalIdentity { get; private set; }
-    public static DbConnection Conn { get; private set; }
-
-    public static Dictionary<int, EntityController> Entities = new Dictionary<int, EntityController>();
-    public static Dictionary<int, PlayerController> Players = new Dictionary<int, PlayerController>();
-
-    private static HashSet<int> _pendingConsumeAnimations = new();
-
     private void Start()
     {
         // Clear game state in case we've disconnected and reconnected
         Entities.Clear();
         Players.Clear();
-        _pendingConsumeAnimations.Clear();
+        PendingConsumeAnimations.Clear();
         Instance = this;
         Application.targetFrameRate = 60;
 
-        // In order to build a connection to SpacetimeDB we need to register
+        // To build a connection to SpacetimeDB, we need to register
         // our callbacks and specify a SpacetimeDB server URI and module name.
-        var builder = DbConnection.Builder()
-            .OnConnect(HandleConnect)
-            .OnConnectError(HandleConnectError)
-            .OnDisconnect(HandleDisconnect)
-            .WithUri(SERVER_URL)
-            .WithDatabaseName(MODULE_NAME);
+        var builder = DbConnection.Builder().
+            OnConnect(HandleConnect).
+            OnConnectError(HandleConnectError).
+            OnDisconnect(HandleDisconnect).
+            WithUri(SERVER_URL).
+            WithDatabaseName(MODULE_NAME);
 
         // If the user has a SpacetimeDB auth token stored in the Unity PlayerPrefs,
         // we can use it to authenticate the connection.
@@ -66,7 +66,7 @@ public class GameManager : MonoBehaviour
     }
 
     // Called when we connect to SpacetimeDB and receive our client identity
-    void HandleConnect(DbConnection conn, Identity identity, string token)
+    private void HandleConnect(DbConnection conn, Identity identity, string token)
     {
         Debug.Log("Connected.");
         AuthToken.SaveToken(token);
@@ -83,17 +83,17 @@ public class GameManager : MonoBehaviour
         OnConnected?.Invoke();
 
         // Request all tables
-        Conn.SubscriptionBuilder()
-            .OnApplied(HandleSubscriptionApplied)
-            .SubscribeToAllTables();
+        Conn.SubscriptionBuilder().
+            OnApplied(HandleSubscriptionApplied).
+            SubscribeToAllTables();
     }
 
-    void HandleConnectError(Exception ex)
+    private static void HandleConnectError(Exception ex)
     {
         Debug.LogError($"Connection error: {ex}");
     }
 
-    void HandleDisconnect(DbConnection _conn, Exception ex)
+    private static void HandleDisconnect(DbConnection conn, Exception ex)
     {
         Debug.Log("Disconnected.");
         if (ex != null)
@@ -107,12 +107,12 @@ public class GameManager : MonoBehaviour
         Debug.Log("Subscription applied!");
         OnSubscriptionApplied?.Invoke();
 
-        // Once we have the initial subscription sync'd to the client cache
+        // Once we have the initial subscription synced to the client cache,
         // Get the world size from the config table and set up the arena
         var worldSize = Conn.Db.Config.Id.Find(0).WorldSize;
         SetupArena(worldSize);
 
-        // Check to see if we already have a player, if we don't we'll need to create one
+        // Check to see if we already have a player, if we don't, we'll need to create one
         var player = ctx.Db.Player.Identity.Find(LocalIdentity);
         if (string.IsNullOrEmpty(player.Name))
         {
@@ -156,10 +156,10 @@ public class GameManager : MonoBehaviour
         CreateBorderCube(new Vector2(-borderThickness / 2, worldSize / 2.0f),
             new Vector2(borderThickness, worldSize + borderThickness * 2.0f)); //West
 
-        backgroundInstance.gameObject.SetActive(true); ;
+        backgroundInstance.gameObject.SetActive(true);
         var size = worldSize / backgroundInstance.transform.localScale.x;
         backgroundInstance.size = new Vector2(size, size);
-        backgroundInstance.transform.position = new Vector3((float)worldSize / 2, (float)worldSize / 2);
+        backgroundInstance.transform.position = new Vector3(worldSize / 2f, worldSize / 2f);
 
         // Set the world size for the camera controller
         CameraController.WorldSize = worldSize;
@@ -183,18 +183,17 @@ public class GameManager : MonoBehaviour
 
     private static void EntityOnUpdate(EventContext context, Entity oldEntity, Entity newEntity)
     {
-        if (!Entities.TryGetValue(newEntity.EntityId, out var entityController))
+        if (Entities.TryGetValue(newEntity.EntityId, out var entityController))
         {
-            return;
+            entityController.OnEntityUpdated(newEntity);
         }
-        entityController.OnEntityUpdated(newEntity);
     }
 
     private static void EntityOnDelete(EventContext context, Entity oldEntity)
     {
         if (Entities.Remove(oldEntity.EntityId, out var entityController))
         {
-            if (_pendingConsumeAnimations.Remove(oldEntity.EntityId))
+            if (PendingConsumeAnimations.Remove(oldEntity.EntityId))
             {
                 // Already being animated by ConsumeEntityEventOnInsert — don't destroy yet
                 return;
@@ -208,7 +207,7 @@ public class GameManager : MonoBehaviour
         if (Entities.TryGetValue(evt.ConsumedEntityId, out var consumedEntity) &&
             Entities.TryGetValue(evt.ConsumerEntityId, out var consumerEntity))
         {
-            _pendingConsumeAnimations.Add(evt.ConsumedEntityId);
+            PendingConsumeAnimations.Add(evt.ConsumedEntityId);
             consumedEntity.StartCoroutine(consumedEntity.DespawnCoroutine(consumerEntity.transform));
         }
     }
@@ -224,11 +223,11 @@ public class GameManager : MonoBehaviour
         GetOrCreatePlayer(insertedPlayer.PlayerId);
     }
 
-    private static void PlayerOnDelete(EventContext context, Player deletedvalue)
+    private static void PlayerOnDelete(EventContext context, Player deletedValue)
     {
-        if (Players.Remove(deletedvalue.PlayerId, out var playerController))
+        if (Players.Remove(deletedValue.PlayerId, out var playerController))
         {
-            GameObject.Destroy(playerController.gameObject);
+            Destroy(playerController.gameObject);
         }
     }
 
@@ -246,10 +245,10 @@ public class GameManager : MonoBehaviour
 
     public static bool IsConnected()
     {
-        return Conn != null && Conn.IsActive;
+        return Conn is { IsActive: true };
     }
 
-    public void Disconnect()
+    public static void Disconnect()
     {
         Conn.Disconnect();
         Conn = null;

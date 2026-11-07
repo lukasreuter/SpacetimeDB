@@ -1,10 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
-using SpacetimeDB.Types;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
-public class CameraController : MonoBehaviour
+public partial class CameraController : MonoBehaviour
 {
+	[AutoStaticsCleanup]
     public static float WorldSize = 0.0f;
 
 	private void LateUpdate()
@@ -27,17 +26,19 @@ public class CameraController : MonoBehaviour
             {
                 x = centerOfMass.Value.x,
                 y = centerOfMass.Value.y,
-                z = transform.position.z
+                z = transform.position.z,
             };
-        } else {
-            transform.position = arenaCenterTransform;
+        }
+        else
+        {
+	        transform.position = arenaCenterTransform;
         }
 
 		float targetCameraSize = CalculateCameraSize(PlayerController.Local);
 		Camera.main.orthographicSize = Mathf.Lerp(Camera.main.orthographicSize, targetCameraSize, Time.deltaTime * 2);
 	}
 
-	private float CalculateCameraSize(PlayerController player)
+	private static float CalculateCameraSize(PlayerController player)
 	{
 		return 50f + //Base size
             Mathf.Min(50, player.TotalMass() / 5) + //Increase camera size with mass

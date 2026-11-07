@@ -66,7 +66,7 @@ public class PlayModeExampleTest
             playerCreated = true;
         };
 
-        UIUsernameChooser.Instance.UsernameInputField.text = "Test " + Random.Range(100000, 999999);
+        UIUsernameChooser.Instance.usernameInputField.text = "Test " + Random.Range(100000, 999999);
         UIUsernameChooser.Instance.PlayPressed();
         while (!playerCreated) yield return null;
 
@@ -167,7 +167,7 @@ public class PlayModeExampleTest
         };
 
         var name = "Test " + Random.Range(100000, 999999);
-        UIUsernameChooser.Instance.UsernameInputField.text = name;
+        UIUsernameChooser.Instance.usernameInputField.text = name;
         UIUsernameChooser.Instance.PlayPressed();
         while (!playerCreated) yield return null;
 
@@ -212,7 +212,7 @@ public class PlayModeExampleTest
         };
 
         var name = "Test " + Random.Range(100000, 999999);
-        UIUsernameChooser.Instance.UsernameInputField.text = name;
+        UIUsernameChooser.Instance.usernameInputField.text = name;
         UIUsernameChooser.Instance.PlayPressed();
         while (!playerCreated) yield return null;
 
@@ -255,7 +255,7 @@ public class PlayModeExampleTest
         };
 
         var username = "Test " + Random.Range(100000, 999999);
-        UIUsernameChooser.Instance.UsernameInputField.text = username;
+        UIUsernameChooser.Instance.usernameInputField.text = username;
         UIUsernameChooser.Instance.PlayPressed();
         while (!playerCreated) yield return null;
 
@@ -266,7 +266,7 @@ public class PlayModeExampleTest
 
         connected = false;
         subscribed = false;
-        GameManager.Instance.Disconnect();
+        GameManager.Disconnect();
 
         Debug.Log("Second scene load!");
         // Reload

@@ -1,11 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class DeathScreen : MonoBehaviour
 {
-	public Button RespawnButton;
+	[FormerlySerializedAs("RespawnButton")]
+	public Button respawnButton;
 
 	public void SetVisible(bool visible)
 	{

@@ -1,36 +1,38 @@
-using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class LeaderboardController : MonoBehaviour
 {
-    const int MAX_ROW_COUNT = 11; //10 + local player
+	private const int MAX_ROW_COUNT = 11; //10 + local player
 
-    public LeaderboardRow RowPrefab;
-    public Transform Root;
+    [FormerlySerializedAs("RowPrefab")]
+    public LeaderboardRow rowPrefab;
+    [FormerlySerializedAs("Root")]
+    public Transform root;
 
-    private LeaderboardRow[] Rows = new LeaderboardRow[MAX_ROW_COUNT];
+    private readonly LeaderboardRow[] rows = new LeaderboardRow[MAX_ROW_COUNT];
 
     private void Start()
     {
         for (var i = 0; i < MAX_ROW_COUNT; i++)
         {
-            var go = Instantiate(RowPrefab, Root, true);
+            var go = Instantiate(rowPrefab, root, true);
             go.gameObject.SetActive(false);
-            Rows[i] = go;
+            rows[i] = go;
         }
     }
     
     private void Update()
     {
-        var players = GameManager.Players.Values
-            .Select(a => (player: a, mass: a.TotalMass()))
-            .Where(a => a.mass > 0)
-            .OrderByDescending(a => a.mass)
-            .Take(10)
-            .ToList();
+        var players = GameManager.Players.Values.
+	        Select(static a => (player: a, mass: a.TotalMass())).
+	        Where(static a => a.mass > 0).
+	        OrderByDescending(static a => a.mass).
+	        Take(10).
+	        ToList();
         var localPlayer = PlayerController.Local;
-		if (localPlayer != null && !players.Any(p => p.player == localPlayer) && localPlayer.NumberOfOwnedCircles > 0)
+		if (localPlayer != null && players.All(p => p.player != localPlayer) && localPlayer.NumberOfOwnedCircles > 0)
         {
             players.Add((localPlayer, localPlayer.TotalMass()));
 		}
@@ -39,13 +41,13 @@ public class LeaderboardController : MonoBehaviour
         for (i = 0; i < players.Count; i++)
 		{
             var player = players[i];
-			var row = Rows[i];
+			var row = rows[i];
             row.SetData(player.player.Username, player.mass);
             row.gameObject.SetActive(true);
 		}
         for (; i < MAX_ROW_COUNT; i++)
 		{
-			Rows[i].gameObject.SetActive(false);
+			rows[i].gameObject.SetActive(false);
 		}
     }
 }

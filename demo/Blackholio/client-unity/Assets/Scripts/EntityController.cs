@@ -1,32 +1,29 @@
-﻿using SpacetimeDB.Types;
-using System;
+﻿using System;
+using SpacetimeDB.Types;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public abstract class EntityController : MonoBehaviour
 {
-	const float LERP_DURATION_SEC = 0.1f;
+	private const float LERP_DURATION_SEC = 0.1f;
 
 	private static readonly int ShaderColorProperty = Shader.PropertyToID("_Color");
 
-	[DoNotSerialize] public int EntityId;
+	[NonSerialized] public int entityId;
 
-	protected float LerpTime;
-	protected Vector3 LerpStartPosition;
-	protected Vector3 LerpTargetPosition;
-	protected Vector3 TargetScale;
+	protected float lerpTime;
+	protected Vector3 lerpStartPosition;
+	protected Vector3 lerpTargetPosition;
+	protected Vector3 targetScale;
 
-	protected virtual void Spawn(int entityId)
+	protected virtual void Spawn(int withEntityId)
 	{
-		EntityId = entityId;
+		entityId = withEntityId;
 
-		var entity = GameManager.Conn.Db.Entity.EntityId.Find(entityId);
-		LerpStartPosition = LerpTargetPosition = transform.position = (Vector2)entity.Position;
+		var entity = GameManager.Conn.Db.Entity.EntityId.Find(withEntityId);
+		lerpStartPosition = lerpTargetPosition = transform.position = (Vector2) entity.Position;
 		transform.localScale = Vector3.one;
-		TargetScale = MassToScale(entity.Mass);
+		targetScale = MassToScale(entity.Mass);
 	}
 
 	public void SetColor(Color color)
@@ -36,10 +33,10 @@ public abstract class EntityController : MonoBehaviour
 
 	public virtual void OnEntityUpdated(Entity newVal)
 	{
-		LerpTime = 0.0f;
-		LerpStartPosition = transform.position;
-		LerpTargetPosition = (Vector2)newVal.Position;
-		TargetScale = MassToScale(newVal.Mass);
+		lerpTime = 0.0f;
+		lerpStartPosition = transform.position;
+		lerpTargetPosition = (Vector2)newVal.Position;
+		targetScale = MassToScale(newVal.Mass);
 	}
 
 	public virtual void OnDelete(EventContext context)
@@ -49,13 +46,13 @@ public abstract class EntityController : MonoBehaviour
 
 	public IEnumerator DespawnCoroutine(Transform targetTransform)
 	{
-		const float DESPAWN_TIME = 0.2f;
+		const float despawnTime = 0.2f;
 		var startPosition = transform.position;
 		var startScale = transform.localScale;
 		GetComponent<SpriteRenderer>().sortingOrder++; //Render consumed food above the circle that's consuming it
-		for (float time = Time.deltaTime; time < DESPAWN_TIME; time += Time.deltaTime)
+		for (float time = Time.deltaTime; time < despawnTime; time += Time.deltaTime)
 		{
-			float t = time / DESPAWN_TIME;
+			float t = time / despawnTime;
 			transform.position = Vector3.Lerp(startPosition, targetTransform.position, t);
 			transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
 			yield return null;
@@ -66,9 +63,9 @@ public abstract class EntityController : MonoBehaviour
 	public virtual void Update()
 	{
 		//Interpolate position and scale
-		LerpTime = Mathf.Min(LerpTime + Time.deltaTime, LERP_DURATION_SEC);
-		transform.position = Vector3.Lerp(LerpStartPosition, LerpTargetPosition, LerpTime / LERP_DURATION_SEC);
-		transform.localScale = Vector3.Lerp(transform.localScale, TargetScale, Time.deltaTime * 8);
+		lerpTime = Mathf.Min(lerpTime + Time.deltaTime, LERP_DURATION_SEC);
+		transform.position = Vector3.Lerp(lerpStartPosition, lerpTargetPosition, lerpTime / LERP_DURATION_SEC);
+		transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * 8);
 	}
 
 	public static Vector3 MassToScale(int mass)

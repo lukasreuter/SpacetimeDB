@@ -1,14 +1,14 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class ParallaxBackground : MonoBehaviour
 {
-    public float Multiplier;
+    [FormerlySerializedAs("Multiplier")]
+    public float multiplier;
 
 	private void LateUpdate()
 	{
-		var pos = Camera.main.transform.position * Multiplier;
+		var pos = Camera.main.transform.position * multiplier;
 		pos.z = 0;
 		transform.position = pos;
 	}

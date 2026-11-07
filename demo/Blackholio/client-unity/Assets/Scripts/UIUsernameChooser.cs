@@ -1,16 +1,16 @@
-using System;
-using System.Collections.Generic;
-using SpacetimeDB.Types;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.Serialization;
 
-public class UIUsernameChooser : MonoBehaviour
+public partial class UIUsernameChooser : MonoBehaviour
 {
+    [AutoStaticsCleanup]
     public static UIUsernameChooser Instance { get; private set; }
 
     // The elements that compose the username chooser UI
     public GameObject[] elements;
-    public TMPro.TMP_InputField UsernameInputField;
+    [FormerlySerializedAs("UsernameInputField")]
+    public TMPro.TMP_InputField usernameInputField;
     
     private void Start()
     {
@@ -21,12 +21,12 @@ public class UIUsernameChooser : MonoBehaviour
     {
 		Debug.Log("Creating player");
 
-        var name = UsernameInputField.text.Trim();
-        if (string.IsNullOrEmpty(name))
+        var userName = usernameInputField.text.Trim();
+        if (string.IsNullOrEmpty(userName))
         {
-            name = "<No Name>";
+            userName = "<No Name>";
         }
-		GameManager.Conn.Reducers.EnterGame(name);
+		GameManager.Conn.Reducers.EnterGame(userName);
 		Show(false);
 	}
 

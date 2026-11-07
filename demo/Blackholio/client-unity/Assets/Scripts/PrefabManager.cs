@@ -1,24 +1,28 @@
 using SpacetimeDB.Types;
-using System.Collections;
-using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Serialization;
 
-public class PrefabManager : MonoBehaviour
+public partial class PrefabManager : MonoBehaviour
 {
-	private static PrefabManager Instance;
+	[AutoStaticsCleanup]
+	private static PrefabManager instance;
 
-	public CircleController CirclePrefab;
-	public FoodController FoodPrefab;
-	public PlayerController PlayerPrefab;
+	[FormerlySerializedAs("CirclePrefab")]
+	public CircleController circlePrefab;
+	[FormerlySerializedAs("FoodPrefab")]
+	public FoodController foodPrefab;
+	[FormerlySerializedAs("PlayerPrefab")]
+	public PlayerController playerPrefab;
 
 	private void Awake()
 	{
-		Instance = this;
+		instance = this;
 	}
 
 	public static CircleController SpawnCircle(Circle circle, PlayerController owner)
 	{
-		var entityController = Instantiate(Instance.CirclePrefab);
+		var entityController = Instantiate(instance.circlePrefab);
 		entityController.name = $"Circle - {circle.EntityId}";
 		entityController.Spawn(circle, owner);
 		owner.OnCircleSpawned(entityController);
@@ -27,7 +31,7 @@ public class PrefabManager : MonoBehaviour
 
 	public static FoodController SpawnFood(Food food)
 	{
-		var entityController = Instantiate(Instance.FoodPrefab);
+		var entityController = Instantiate(instance.foodPrefab);
 		entityController.name = $"Food - {food.EntityId}";
 		entityController.Spawn(food);
 		return entityController;
@@ -35,7 +39,7 @@ public class PrefabManager : MonoBehaviour
 
 	public static PlayerController SpawnPlayer(Player player)
 	{
-		var playerController = Instantiate(Instance.PlayerPrefab);
+		var playerController = Instantiate(instance.playerPrefab);
 		playerController.name = $"PlayerController - {player.Name}";
 		playerController.Initialize(player);
 		return playerController;

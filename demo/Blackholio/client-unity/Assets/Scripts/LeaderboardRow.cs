@@ -1,16 +1,17 @@
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class LeaderboardRow : MonoBehaviour
 {
-    public TextMeshProUGUI UsernameText;
-    public TextMeshProUGUI MassText;
+    [FormerlySerializedAs("UsernameText")]
+    public TextMeshProUGUI usernameText;
+    [FormerlySerializedAs("MassText")]
+    public TextMeshProUGUI massText;
 
     public void SetData(string username, int mass)
 	{
-		UsernameText.text = username;
-		MassText.text = mass.ToString();
+		usernameText.text = username;
+		massText.text = mass.ToString();
 	}
 }

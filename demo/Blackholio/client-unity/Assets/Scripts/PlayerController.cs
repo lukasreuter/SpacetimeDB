@@ -2,27 +2,30 @@ using System.Collections.Generic;
 using System.Linq;
 using SpacetimeDB;
 using SpacetimeDB.Types;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
-public class PlayerController : MonoBehaviour
+public partial class PlayerController : MonoBehaviour
 {
-    const int SEND_UPDATES_PER_SEC = 20;
-    const float SEND_UPDATES_FREQUENCY = 1f / SEND_UPDATES_PER_SEC;
+    private const int SEND_UPDATES_PER_SEC = 20;
+    private const float SEND_UPDATES_FREQUENCY = 1f / SEND_UPDATES_PER_SEC;
 
+    [AutoStaticsCleanup]
     public static PlayerController Local { get; private set; }
 
-    private Identity PlayerIdentity;
-    private float LastMovementSendTimestamp;
-    private Vector2? LockInputPosition;
-    private List<CircleController> OwnedCircles = new List<CircleController>();
+    private Identity playerIdentity;
+    private float lastMovementSendTimestamp;
+    private Vector2? lockInputPosition;
+    private readonly List<CircleController> ownedCircles = new();
 
-    public string Username => GameManager.Conn.Db.Player.Identity.Find(PlayerIdentity).Name;
-    public int NumberOfOwnedCircles => OwnedCircles.Count;
+    public string Username => GameManager.Conn.Db.Player.Identity.Find(playerIdentity).Name;
+    public int NumberOfOwnedCircles => ownedCircles.Count;
     public bool IsLocalPlayer => this == Local;
 
     public void Initialize(Player player)
     {
-        PlayerIdentity = player.Identity;
+        playerIdentity = player.Identity;
         if (player.Identity == GameManager.LocalIdentity)
         {
             Local = this;
@@ -32,25 +35,25 @@ public class PlayerController : MonoBehaviour
     private void OnDestroy()
     {
         // If we have any circles, destroy them
-        foreach (var circle in OwnedCircles)
+        foreach (var circle in ownedCircles)
         {
             if (circle != null)
             {
                 Destroy(circle.gameObject);
             }
         }
-        OwnedCircles.Clear();
+        ownedCircles.Clear();
     }
 
     public void OnCircleSpawned(CircleController circle)
     {
-        OwnedCircles.Add(circle);
+        ownedCircles.Add(circle);
     }
 
     public void OnCircleDeleted(CircleController deletedCircle)
     {
         // This means we got eaten
-        if (OwnedCircles.Remove(deletedCircle) && IsLocalPlayer && OwnedCircles.Count == 0)
+        if (ownedCircles.Remove(deletedCircle) && IsLocalPlayer && ownedCircles.Count == 0)
         {
             GameManager.Instance.deathScreen.SetVisible(true);
         }
@@ -58,26 +61,32 @@ public class PlayerController : MonoBehaviour
 
     public int TotalMass()
     {
-        return (int)OwnedCircles
-            .Select(circle => GameManager.Conn.Db.Entity.EntityId.Find(circle.EntityId))
-            .Sum(e => e?.Mass ?? 0); //If this entity is being deleted on the same frame that we're moving, we can have a null entity here.
+        return ownedCircles.
+            Select(static circle => GameManager.Conn.Db.Entity.EntityId.Find(circle.entityId)).
+            Sum(static e => e?.Mass ?? 0); //If this entity is being deleted on the same frame that we're moving, we can have a null entity here.
     }
 
     public Vector2? CenterOfMass()
     {
-        if (OwnedCircles.Count == 0)
+        if (ownedCircles.Count == 0)
         {
             return null;
         }
 
-        Vector2 totalPos = Vector2.zero;
+        var totalPos = Vector2.zero;
         float totalMass = 0;
-        foreach (var circle in OwnedCircles)
+        foreach (var circle in ownedCircles)
         {
-            var entity = GameManager.Conn.Db.Entity.EntityId.Find(circle.EntityId);
+            if (circle == null)
+            {
+                continue;
+            }
+
+            var entity = GameManager.Conn.Db.Entity.EntityId.Find(circle.entityId);
             var position = circle.transform.position;
-            totalPos += (Vector2)position * entity.Mass;
-            totalMass += entity.Mass;
+            var entityMass = entity?.Mass ?? 0;
+            totalPos += (Vector2) position * entityMass;
+            totalMass += entityMass;
         }
 
         return totalPos / totalMass;
@@ -90,34 +99,37 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        var keyboard = Keyboard.current;
+        var mouse = Mouse.current;
+
+        if (keyboard.spaceKey.wasPressedThisFrame)
         {
             GameManager.Conn.Reducers.PlayerSplit();
         }
 
-        if (Input.GetKeyDown(KeyCode.Q))
+        if (keyboard.qKey.wasPressedThisFrame)
         {
-            if (LockInputPosition.HasValue)
+            if (lockInputPosition.HasValue)
             {
-                LockInputPosition = null;
+                lockInputPosition = null;
             }
             else
             {
-                LockInputPosition = (Vector2)Input.mousePosition;
+                lockInputPosition = mouse.position.value;
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.S))
+        if (keyboard.sKey.wasPressedThisFrame)
         {
             GameManager.Conn.Reducers.Suicide();
         }
 
         // Throttled input requests
-        if (Time.time - LastMovementSendTimestamp >= SEND_UPDATES_FREQUENCY)
+        if (Time.time - lastMovementSendTimestamp >= SEND_UPDATES_FREQUENCY)
         {
-            LastMovementSendTimestamp = Time.time;
+            lastMovementSendTimestamp = Time.time;
 
-            var mousePosition = LockInputPosition ?? (Vector2)Input.mousePosition;
+            var mousePosition = lockInputPosition ?? mouse.position.value;
             var screenSize = new Vector2
             {
                 x = Screen.width,
